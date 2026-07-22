@@ -363,7 +363,7 @@ def preflight(model_type: str) -> tuple[bool, str]:
         out = llm_invoke(
             [{"role": "system", "content": "Be terse."},
              {"role": "user", "content": "Reply with exactly: OK"}],
-            model_type, max_tokens=16,
+            model_type, max_tokens=int(os.getenv('LLM_PREFLIGHT_MAX_TOKENS', '512')),
         )
         return True, f"✅ {model_type}  {where}  -> {out.strip()[:40]!r}"
     except LLMError as e:
@@ -376,6 +376,10 @@ def preflight(model_type: str) -> tuple[bool, str]:
             hint = "SAI ROUTE HOẶC SAI REGION (model có tồn tại nhưng không phục vụ ở đây)"
         elif s == 429:
             hint = "HẾT QUOTA / RATE LIMIT"
+        elif s == 200:
+            hint = ("SERVER TRẢ RỖNG — reasoning model đốt hết token trước khi sinh nội dung.\n"
+                    "     Cách xử lý: tăng LLM_PREFLIGHT_MAX_TOKENS (preflight) và/hoặc khởi động\n"
+                    "     vLLM với --reasoning-parser tương ứng (gpt-oss: openai_gptoss)")
         elif s and s >= 500:
             hint = "LỖI SERVER — hoặc REGION SAI (Bedrock hay trả 5xx khi model không có ở region này)"
         else:

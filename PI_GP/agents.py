@@ -23,7 +23,7 @@ def llm_invoke(prompt, model_type: str):
 
 
 async def allm_invoke(prompt, model_type: str):
-    return await _provider_allm_invoke(prompt, model_type, temperature=0, max_tokens=1024)
+    return await _provider_allm_invoke(prompt, model_type, temperature=0)
 
 
 class Agent:
