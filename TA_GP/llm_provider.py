@@ -30,6 +30,7 @@ ký SigV4 từ AWS credentials, không nhận bearer token.
 """
 
 import asyncio
+import json
 import os
 import random
 import time
@@ -47,6 +48,23 @@ BASE_BACKOFF = float(os.getenv("LLM_BASE_BACKOFF", "2.0"))
 MAX_BACKOFF = float(os.getenv("LLM_MAX_BACKOFF", "60.0"))
 TIMEOUT = float(os.getenv("LLM_TIMEOUT", "180"))
 DEFAULT_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "1024"))
+
+# chat_template_kwargs cho route self-hosted (vLLM). Mặc định tắt thinking kiểu
+# Qwen. Reasoning model khác dùng quy ước khác — gpt-oss dùng `reasoning_effort`,
+# KHÔNG hiểu `enable_thinking`. Đặt env để đổi mà không phải sửa code:
+#   LLM_CHAT_TEMPLATE_KWARGS='{"reasoning_effort":"low"}'   # gpt-oss
+#   LLM_CHAT_TEMPLATE_KWARGS='{}'                            # không gửi gì
+def _chat_template_kwargs():
+    raw = os.getenv("LLM_CHAT_TEMPLATE_KWARGS")
+    if raw is None:
+        return {"enable_thinking": False}
+    try:
+        v = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise LLMError(f"LLM_CHAT_TEMPLATE_KWARGS không phải JSON hợp lệ: {e}") from e
+    if not isinstance(v, dict):
+        raise LLMError("LLM_CHAT_TEMPLATE_KWARGS phải là JSON object.")
+    return v
 
 RETRY_STATUS = {408, 409, 425, 429, 500, 502, 503, 504, 529}
 
@@ -220,9 +238,11 @@ def _build(model_type, messages, temperature, max_tokens, extra=None):
         "model": model_type,
         "temperature": temperature,
         "messages": messages,
-        # vLLM-only; Bedrock sẽ reject nên chỉ gắn ở route này
-        "chat_template_kwargs": {"enable_thinking": False},
     }
+    # vLLM-only; Bedrock sẽ reject nên chỉ gắn ở route này
+    ctk = _chat_template_kwargs()
+    if ctk:
+        payload["chat_template_kwargs"] = ctk
     if max_tokens is not None:
         payload["max_tokens"] = max_tokens
     if extra:
