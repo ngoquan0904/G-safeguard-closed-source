@@ -1,3 +1,30 @@
+> ## ⚠️ Attribution / Ghi nguồn
+>
+> **This is NOT an original work.** This repository is a derivative of the official code for
+> the ACL 2025 Main paper *G-Safeguard*, by its original authors:
+>
+> - **Upstream repository:** https://github.com/wslong20/G-safeguard
+> - **Paper:** [arXiv:2502.11127](https://arxiv.org/abs/2502.11127)
+>
+> All credit for the original method, code, and paper belongs to those authors.
+> The upstream repository carries **no LICENSE file**, so all rights to the original
+> code remain with its authors. This fork is published for research collaboration only.
+> **If you are an upstream author and want this taken down, open an issue and it will be removed.**
+>
+> ### What is added here
+>
+> | Directory / file | Origin |
+> |---|---|
+> | `MA/`, `PI/`, `TA/`, `scalability/` | **Upstream, unmodified in substance** |
+> | `MA_GP/`, `PI_GP/`, `TA_GP/` | Derivative work — escalation attack + TemporalGAT defense |
+> | `llm_provider.py`, `run_state.py`, `scatter_compat.py` | Added: multi-provider LLM routing, retry/resume, torch_scatter replacement |
+> | `scripts_common.sh`, `run_all.sh` | Added: orchestration |
+> | `RUNBOOK.md`, `plans/` | Added: operational docs |
+>
+> Please cite the original paper, not this repository.
+
+---
+
 # [ACL 2025 Main] G-Safeguard: A Topology-Guided Security Lens and Treatment on LLM-based Multi-agent Systems
 
 ## 📰 News

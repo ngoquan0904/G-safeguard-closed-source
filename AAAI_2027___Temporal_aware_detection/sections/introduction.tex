@@ -1,0 +1,90 @@
+\section{Introduction}
+\label{sec:introduction}
+
+% TODO(figure): add the teaser \ref{fig:teaser} (escalation vs. continuous attack
+% under a mean-pooling detector). TODO(results): fill the [XX] placeholders.
+
+LLM-based multi-agent systems (MAS) now solve tasks that exceed the reach of any
+single agent, ranging from collaborative reasoning and debate to tool use and
+autonomous decision-making~\citep{guo2024survey,li2023camel,zhuge2024gptswarm}.
+Their strength comes from inter-agent communication, but this same communication
+is a new attack surface: a few compromised agents can inject malicious content
+that propagates across the network and degrades the whole system rather than a
+single node~\citep{yu2024netsafe}. Such compromises stem from familiar vectors
+---direct and indirect prompt injection~\citep{perez2022ignore,greshake2023indirect},
+tool attacks~\citep{zhan2024injecagent}, and memory poisoning~\citep{chen2024agentpoison}---
+yet in a MAS their damage is amplified by propagation instead of being contained
+at the point of entry.
+
+To defend MAS, recent work models the system as a graph and detects malicious
+agents from their communication. The state-of-the-art defense,
+G-Safeguard~\citep{wang2025gsafeguard}, constructs a multi-agent \emph{utterance
+graph} whose nodes are agents and whose edges carry the messages exchanged
+between them, trains a graph neural network (GNN) to flag high-risk agents, and
+prunes their edges to halt contamination. Because the GNN is inductive, a single
+detector transfers across LLM backbones, topologies, and system scales without
+retraining. This detect-and-remediate paradigm is currently the most general and
+effective line of defense for MAS.
+
+However, such detectors collapse the temporal dimension of multi-turn dialogue
+before they reason over the graph. Each edge accumulates an agent's utterances
+across several rounds, but the detector compresses this sequence into one
+embedding by mean-pooling---or by keeping only the last turn---before message
+passing. Mean-pooling discards \emph{how} an agent's behavior evolves over the
+conversation, and we identify this as a critical blind spot: detection then
+depends on an agent's average content rather than on its trajectory. An attacker
+can exploit this directly. If it behaves benignly in the early turns and escalates
+its malicious intent only gradually, the benign early turns dominate the average
+and pull the attacker's mean embedding toward that of honest agents---saturating
+the very feature on which detection relies, so the attacker evades the detector
+while still steering the system.
+
+We make two contributions that turn this blind spot into both a threat and a
+remedy. First, we introduce the \emph{escalation attack}, a stealthy strategy in
+which a compromised agent starts indistinguishable from honest agents and ramps
+up its influence over successive turns (Figure~\ref{fig:teaser}). By saturating
+the mean-pooled feature with benign early turns, the escalation attack sharply
+lowers the detection rate of existing defenses while remaining effective at
+compromising the MAS. Second, we propose \textbf{T-GAT}, a temporal-aware
+detector that replaces mean-pooling with a temporal edge encoder. Rather than
+averaging an agent's utterances, T-GAT extracts their temporal structure through
+self-attention over turns, a temporal convolution that captures local shifts, and
+explicit cross-turn statistics---variance and step-wise change---that directly
+expose escalation; a learned gate then fuses these temporal cues with message
+content before graph message passing.
+
+The key insight behind T-GAT is that the discriminative signal is \emph{how} an
+agent changes, not only \emph{what} it says on average. An honest agent is
+consistent across turns, so its cross-turn variance is near zero; an escalating
+attacker is, by construction, inconsistent, so the statistics a mean obscures
+become its signature. Because T-GAT preserves these dynamics instead of discarding
+them, it is designed to detect escalation attacks that defeat mean-pooling while
+remaining effective against continuous attacks, whose strong per-turn signals
+existing detectors already capture. T-GAT keeps the inductive, drop-in design of
+graph-based detectors, so it inherits their transferability across backbones and
+topologies.
+
+We evaluate across diverse agent-attack scenarios, multiple LLM backbones, and
+graph topologies. The escalation attack reduces the detection accuracy of
+G-Safeguard by \textbf{[XX]} and raises the attack success rate by \textbf{[XX]},
+while T-GAT recovers detection to \textbf{[XX]} and lowers the attack success rate
+by \textbf{[XX]} under both continuous and escalation attacks.
+% >>NEEDS<< finalize the exact attack scenarios / datasets evaluated and cite them,
+% e.g., tool attack (InjecAgent), prompt injection (CSQA/MMLU/GSM8K), memory
+% poisoning (PoisonRAG). Keep this consistent with the Abstract and Experiments.
+
+\noindent\textbf{Contributions.} We summarize our contributions as follows:
+\begin{itemize}
+    \item We expose a temporal blind spot in state-of-the-art graph-based MAS
+    defenses: by mean-pooling multi-turn dialogue, attacker detection depends on
+    average content and ignores behavioral dynamics.
+    \item We introduce the \emph{escalation attack}, which exploits this blind
+    spot by saturating the mean-pooled feature with benign early turns, evading
+    detection while still compromising the MAS.
+    \item We propose \textbf{T-GAT}, a temporal-aware detector that models
+    cross-turn dynamics---self-attention, temporal convolution, and
+    variance/step-change statistics---and defends against both escalation and
+    continuous attacks while preserving inductive transferability.
+    \item Experiments across multiple LLM backbones and graph topologies show that
+    [\textbf{summary of results once measured}].
+\end{itemize}

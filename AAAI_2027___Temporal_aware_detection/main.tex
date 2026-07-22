@@ -1,0 +1,141 @@
+\documentclass[letterpaper]{article} % DO NOT CHANGE THIS
+
+\usepackage[submission]{aaai2027}  % DO NOT CHANGE THIS
+% NOTE: keep the [submission] option while the paper is under double-blind review.
+% For the camera-ready version, change it to \usepackage{aaai2027}.
+
+% The serif, sans-serif, and monospaced fonts are loaded automatically by
+% aaai2027.sty (newtxtext, helvet, courier). DO NOT add \usepackage{times},
+% \usepackage{helvet}, \usepackage{courier}, or any other font package.
+
+\usepackage[hyphens]{url}  % DO NOT CHANGE THIS
+\usepackage{graphicx}      % DO NOT CHANGE THIS
+\urlstyle{rm}              % DO NOT CHANGE THIS
+\def\UrlFont{\rm}          % DO NOT CHANGE THIS
+\usepackage{natbib}        % DO NOT CHANGE THIS AND DO NOT ADD ANY OPTIONS TO IT
+\usepackage{caption}       % DO NOT CHANGE THIS AND DO NOT ADD ANY OPTIONS TO IT
+\frenchspacing             % DO NOT CHANGE THIS
+
+%
+% Recommended to typeset algorithms. Remove if you don't use algorithms.
+\usepackage{algorithm}
+\usepackage{algorithmic}
+
+%
+% Recommended to typeset listings. Remove this block if you don't use listings.
+\usepackage{newfloat}
+\usepackage{listings}
+\DeclareCaptionStyle{ruled}{labelfont=normalfont,labelsep=colon,strut=off} % DO NOT CHANGE THIS
+\lstset{%
+	basicstyle={\footnotesize\ttfamily},% footnotesize acceptable for monospace
+	numbers=left,numberstyle=\footnotesize,xleftmargin=2em,% line numbers; remove this line to hide them
+	aboveskip=0pt,belowskip=0pt,%
+	showstringspaces=false,tabsize=2,breaklines=true}
+\floatstyle{ruled}
+\newfloat{listing}{tb}{lst}{}
+\floatname{listing}{Listing}
+
+%
+% Recommended for better-looking tables
+\usepackage{booktabs}
+
+%
+% Additional math packages (safe to use; not on the forbidden list).
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+
+%
+% Keep the \pdfinfo as shown here. There's no need
+% for you to add the /Title and /Author tags.
+\pdfinfo{
+/TemplateVersion (2027.1)
+}
+
+% Set to 0 (no numbers), 1 (sections), or 2 (sections + subsections).
+\setcounter{secnumdepth}{0}
+
+% ======================================================================
+% TITLE
+% ----------------------------------------------------------------------
+% Title must be in Title Case (Chicago style), NOT sentence case.
+% Use https://titlecaseconverter.com/ (Chicago) to double-check.
+% ======================================================================
+\title{How Agents Change, Not What They Say:\\Temporal-Aware Detection of Escalating Attackers in LLM Multi-Agent Systems}
+
+% ----------------------------------------------------------------------
+% AUTHORS
+% ----------------------------------------------------------------------
+% While under double-blind review (submission mode), keep the anonymous
+% block below. For the camera-ready version, replace it with the real
+% author/affiliation block (see examples in the AAAI template).
+% ----------------------------------------------------------------------
+\author{
+    Anonymous Submission
+}
+\affiliations{
+    % Leave empty for anonymous submission.
+}
+
+\begin{document}
+
+\maketitle
+
+% ----------------------------------------------------------------------
+% ABSTRACT
+% ----------------------------------------------------------------------
+\begin{abstract}
+\input{sections/abstract}
+\end{abstract}
+
+% ----------------------------------------------------------------------
+% LINKS (optional). Must sit BETWEEN the abstract and the main body.
+% Uncomment to add links to code/data/extended version.
+% Make sure these do NOT de-anonymize you during review.
+% ----------------------------------------------------------------------
+% \begin{links}
+%     \link{Code}{https://anonymous.4open.science/r/example}
+%     \link{Datasets}{https://example.com/datasets}
+% \end{links}
+
+% ======================================================================
+% MAIN BODY -- add/remove \input lines as your structure evolves.
+% ======================================================================
+\input{sections/introduction}
+\input{sections/related_work}
+\input{sections/method}
+\input{sections/experiments}
+\input{sections/conclusion}
+
+% ----------------------------------------------------------------------
+% ETHICAL STATEMENT (optional, unnumbered)
+% ----------------------------------------------------------------------
+\input{sections/ethical_statement}
+
+% ----------------------------------------------------------------------
+% ACKNOWLEDGMENTS (optional, unnumbered)
+% Omit / leave empty during double-blind review (de-anonymizing).
+% ----------------------------------------------------------------------
+\input{sections/acknowledgments}
+
+% ======================================================================
+% REFERENCES
+% aaai2027.sty is supposed to set the bibliographystyle automatically, but
+% under MiKTeX that deferred call fails to write \bibstyle to the .aux, so
+% bibtex produces an empty bibliography (the official AAAI template has the
+% same issue locally). Setting it explicitly here fixes local compilation,
+% uses the required AAAI style, and changes nothing about layout/fonts.
+% (Harmless on Overleaf/TeXLive -- it just re-asserts the same style.)
+% ======================================================================
+\bibliographystyle{aaai2027}
+\bibliography{references}
+
+% ----------------------------------------------------------------------
+% REPRODUCIBILITY CHECKLIST
+% Uncomment if your conference requires the checklist inside the paper.
+% (It does NOT count toward the 7-page limit.)
+% ----------------------------------------------------------------------
+% \def\isChecklistMainFile{}
+% \input{ReproducibilityChecklist.tex}
+
+\end{document}

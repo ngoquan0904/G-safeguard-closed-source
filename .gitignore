@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+agent_graph_dataset/
+ModelTrainingSet/
+checkpoint/
+result/
+*.pth
+*.partial.jsonl
+run_*.txt
+evaluation_results*.csv
+
+# archive tạm để chuyển lên server — không đưa vào git
+*.zip
+*.tar.gz
+*.tar

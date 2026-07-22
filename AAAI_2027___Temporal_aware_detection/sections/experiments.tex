@@ -1,0 +1,194 @@
+\section{Experiments}
+\label{sec:experiments}
+
+% =====================================================================
+% NOTE TO AUTHORS (remove before submission). Fill every "XX" with measured
+% numbers. Items marked >>NEEDS<< require a decision/value from the experiments.
+% AAAI rule: table captions go BELOW the table (already done here).
+% =====================================================================
+
+We design experiments to answer three research questions:
+\textbf{(RQ1)} Does the escalation attack evade the state-of-the-art defense, and
+does T-GAT restore detection where mean-pooling fails, without sacrificing
+effectiveness on continuous attacks?
+\textbf{(RQ2)} Which components of the temporal edge encoder drive the gain?
+\textbf{(RQ3)} Does T-GAT generalize across LLM backbones, graph topologies, and
+system scales?
+
+\subsection{Experimental Setup}
+\label{sec:exp_setup}
+
+\paragraph{Attack scenarios.}
+We evaluate on a suite of agent-attack scenarios spanning multiple attack
+families. Following the multi-agent construction of~\citet{wang2025gsafeguard}, we
+retain attack cases that fail against a single agent, so that any success within
+the MAS arises purely from inter-agent propagation. The suite includes tool
+attacks built from InjecAgent~\citep{zhan2024injecagent}, as well as additional
+prompt-injection and memory-poisoning benchmarks. Orthogonal to the attack family,
+we instantiate two \emph{temporal} attack regimes: \emph{(i)} a \emph{continuous}
+attack, where compromised agents act maliciously from the first round and stay
+consistent, and \emph{(ii)} our \emph{escalation} attack
+(Section~\ref{sec:method_attack}), where compromised agents begin benign and
+intensify over rounds.
+% >>NEEDS<< finalize the exact benchmarks per family and cite them, e.g.,
+% prompt injection on CSQA/MMLU/GSM8K and memory poisoning on PoisonRAG. If only a
+% subset is run, narrow this sentence accordingly to avoid over-claiming.
+
+\paragraph{MAS configuration.}
+Each MAS has $N{=}8$ agents communicating for $K{=}3$ rounds, with the number of
+attackers ranging in $\{1,2,3,4\}$ and edge density in
+$\{0.2,0.4,0.6,0.8,1.0\}$. We evaluate four topologies: chain, tree, star, and
+random.
+% >>NEEDS<< confirm N, K, #attackers, densities, and #test samples actually used.
+
+\paragraph{Baselines.}
+We compare against \textbf{No Defense} and the state-of-the-art
+\textbf{G-Safeguard}~\citep{wang2025gsafeguard}, the latter in its two aggregation
+variants---\emph{mean-pooling} and \emph{last-turn}---which our method replaces
+with a temporal edge encoder. All detectors share the same GNN backbone,
+embeddings, and training data for a fair comparison.
+
+\paragraph{Metrics.}
+We report \emph{attack success rate} (ASR\,$\downarrow$), the fraction of honest
+agents induced to execute the attacker's target tool, and \emph{detection}
+quality via precision, recall, and F1 (\,$\uparrow$) on the attacker class.
+% >>NEEDS<< confirm metric definitions match your eval (evaluate_output.py for ASR;
+% F1/P/R from the detector). Add task-accuracy/utility if you report it.
+
+\paragraph{Implementation details.}
+We use MiniLM~\citep{wang2020minilm} ($D{=}384$) to embed utterances and
+a 2-layer edge-featured GAT with hidden size 1024 and 8 attention heads; the
+temporal edge encoder uses [\,XX\,] attention heads and hidden size [\,XX\,]. We
+train with Adam (learning rate $10^{-3}$, weight decay $2{\times}10^{-4}$) for
+[\,XX\,] epochs using temporal augmentation. The detector is trained on MAS
+generated with [\,XX\,] (\emph{e.g.}, GPT-4o-mini) and transferred to other
+backbones without retraining.
+% >>NEEDS<< temporal_heads, temporal_hidden, epochs, training backbone, hardware.
+
+\subsection{Main Results (RQ1)}
+\label{sec:exp_main}
+
+\paragraph{The escalation attack evades aggregation-based detection.}
+Table~\ref{tab:main} shows that under the \emph{continuous} attack G-Safeguard
+detects attackers reliably (F1 $=$ XX) and suppresses ASR from XX to XX. Under our
+\emph{escalation} attack, however, its detection collapses to F1 $=$ XX and ASR
+rises to XX, confirming that mean-/last-pooling is blind to attacks whose
+malicious signal is back-loaded in time.
+% claim-evidence: numbers from Table 1.
+
+\paragraph{T-GAT defends both regimes.}
+T-GAT recovers detection under escalation to F1 $=$ XX and lowers ASR to XX, while
+matching G-Safeguard on the continuous attack (F1 $=$ XX, ASR $=$ XX). A single
+T-GAT model thus handles both attack profiles, supporting our claim that modeling
+\emph{how} agents change---not only their average content---is the discriminative
+signal.
+
+\begin{table}[t]
+\centering
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lcccc}
+\toprule
+& \multicolumn{2}{c}{\textbf{Continuous}} & \multicolumn{2}{c}{\textbf{Escalation}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+Method & ASR\,$\downarrow$ & F1\,$\uparrow$ & ASR\,$\downarrow$ & F1\,$\uparrow$ \\
+\midrule
+No Defense              & XX & --  & XX & --  \\
+G-Safeguard (last)      & XX & XX & XX & XX \\
+G-Safeguard (mean)      & XX & XX & XX & XX \\
+\textbf{T-GAT (Ours)}   & \textbf{XX} & \textbf{XX} & \textbf{XX} & \textbf{XX} \\
+\bottomrule
+\end{tabular}
+\caption{Main results under continuous and escalation attacks, averaged over
+topologies and attacker counts. ASR is attack success rate (lower is better); F1
+is attacker-detection F1 (higher is better). Best in \textbf{bold}.}
+% >>NEEDS<< averaging protocol (over which topologies/backbones) and the numbers.
+\label{tab:main}
+\end{table}
+
+\subsection{Ablation Study (RQ2)}
+\label{sec:exp_ablation}
+
+\paragraph{Each temporal component contributes.}
+Table~\ref{tab:ablation} isolates the parts of the temporal edge encoder under the
+escalation attack. Removing the cross-turn statistics (variance and step-wise
+change) causes the largest drop (F1 $-$XX), confirming they carry the escalation
+signal; removing temporal self-attention or the temporal convolution costs F1
+$-$XX and $-$XX, respectively. Replacing the encoder with plain mean-pooling
+recovers the baseline's vulnerability, and disabling the fusion gate reduces
+robustness on the continuous attack, showing the gate is what lets one model serve
+both regimes.
+% >>NEEDS<< ablation numbers.
+
+\begin{table}[t]
+\centering
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{lcc}
+\toprule
+Variant & ASR\,$\downarrow$ & F1\,$\uparrow$ \\
+\midrule
+\textbf{T-GAT (full)}            & \textbf{XX} & \textbf{XX} \\
+\;\; w/o cross-turn statistics   & XX & XX \\
+\;\; w/o temporal self-attention & XX & XX \\
+\;\; w/o temporal convolution    & XX & XX \\
+\;\; w/o fusion gate             & XX & XX \\
+\;\; mean-pooling (= G-Safeguard) & XX & XX \\
+\bottomrule
+\end{tabular}
+\caption{Ablation of the temporal edge encoder under the escalation attack. Each
+row removes or replaces one component of the full model.}
+% >>NEEDS<< numbers and confirm the exact set of ablated variants you run.
+\label{tab:ablation}
+\end{table}
+
+\subsection{Generalization (RQ3)}
+\label{sec:exp_generalize}
+
+\paragraph{Across LLM backbones and topologies.}
+Although T-GAT is trained on MAS from a single backbone, Table~\ref{tab:generalize}
+shows it transfers to unseen backbones and topologies under the escalation attack,
+reducing ASR by XX--XX\,points over G-Safeguard across
+% >>NEEDS<< list the backbones (e.g., GPT-4o, Claude-3.5-Haiku, LLaMA-3.1-70B,
+% DeepSeek-V3) and confirm the topology set.
+all settings.
+
+\paragraph{Across system scale.}
+Because T-GAT inherits the inductive property of GNNs, a detector trained on
+8-agent MAS applies directly to larger systems. Figure~\ref{fig:scale} reports ASR
+as the number of agents grows to [\,XX\,], where T-GAT maintains [\,XX\,].
+% >>NEEDS<< scale range and numbers; or drop this paragraph if not evaluated.
+
+\begin{table}[t]
+\centering
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lccc}
+\toprule
+& No Defense & G-Safeguard & \textbf{T-GAT} \\
+Backbone & ASR\,$\downarrow$ & ASR\,$\downarrow$ & ASR\,$\downarrow$ \\
+\midrule
+GPT-4o-mini       & XX & XX & \textbf{XX} \\
+GPT-4o            & XX & XX & \textbf{XX} \\
+Claude-3.5-Haiku  & XX & XX & \textbf{XX} \\
+LLaMA-3.1-70B     & XX & XX & \textbf{XX} \\
+DeepSeek-V3       & XX & XX & \textbf{XX} \\
+\bottomrule
+\end{tabular}
+\caption{Generalization across LLM backbones under the escalation attack (ASR,
+averaged over topologies). The detector is trained on a single backbone and
+transferred without retraining.}
+% >>NEEDS<< confirm backbone list and numbers.
+\label{tab:generalize}
+\end{table}
+
+\subsection{Analysis}
+\label{sec:exp_analysis}
+
+\paragraph{Per-round dynamics.}
+Figure~\ref{fig:dynamics} traces detection and ASR across dialogue rounds. Under
+the escalation attack, G-Safeguard's per-round detection stays near chance while
+contamination spreads, whereas T-GAT flags attackers by round [\,XX\,] and arrests
+the spread, illustrating that early temporal cues are detectable even before the
+attack reaches full intensity.
+% >>NEEDS<< the per-round figure (fig:dynamics) and the round index XX.
+
+% TODO(figure): \ref{fig:scale} scalability plot, \ref{fig:dynamics} per-round
+% detection/ASR. Add when results are ready.

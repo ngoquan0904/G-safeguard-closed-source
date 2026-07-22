@@ -25,4 +25,3 @@ for datafile in datafiles:
 save_file = os.path.join(root, "dataset.json")
 with open(save_file, "w") as f:
     json.dump(dataset, f, indent=None)
-

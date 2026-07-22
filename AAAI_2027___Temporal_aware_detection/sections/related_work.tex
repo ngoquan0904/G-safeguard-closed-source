@@ -1,0 +1,50 @@
+\section{Related Work}
+\label{sec:related_work}
+
+\paragraph{Attacks on LLM agents and multi-agent systems.}
+Attacks on LLM agents target the components that extend a base model into an
+agent. At the single-agent level, direct and indirect prompt
+injection~\citep{perez2022ignore,greshake2023indirect} hijack an agent through its
+instructions or retrieved content, tool attacks abuse external
+APIs~\citep{zhan2024injecagent}, and memory poisoning corrupts an agent's stored
+knowledge~\citep{chen2024agentpoison}. In a multi-agent system these effects are
+amplified rather than contained: a single compromised agent propagates toxic
+content through communication and can paralyze the whole
+network~\citep{gu2024agentsmith,yu2024netsafe,andriushchenko2024agentharm}.
+Across these settings, however, the attacker is typically \emph{continuous}---it
+acts maliciously from the outset and stays consistent across rounds, producing a
+strong and persistent signal. The temporal profile of an attack, namely whether
+its malicious signal stays constant or grows over time, has not been used as an
+evasion lever. We fill this gap with an escalation attack whose signal is
+deliberately weak in early turns and intensifies later, specifically to defeat
+detectors that aggregate behavior over time.
+
+\paragraph{Safeguarding agents and multi-agent systems.}
+Defenses against agent attacks fall into single-agent guardrails and
+topology-aware MAS defenses. Guardrail models such as
+LlamaGuard~\citep{inan2023llamaguard} and WildGuard~\citep{han2024wildguard}
+classify the inputs and outputs of an individual agent, but they are
+topology-unaware and cannot reason about how malicious content propagates between
+agents. Recent MAS defenses instead model the system as a graph and reason over
+communication: NetSafe~\citep{yu2024netsafe} characterizes the topological safety
+of multi-agent networks, while G-Safeguard~\citep{wang2025gsafeguard}, the
+state-of-the-art and our primary baseline, detects attacked agents with a GNN over
+a multi-agent utterance graph and remediates by pruning their edges. Their key
+limitation, central to our work, is temporal: they compress each agent's
+multi-turn dialogue into a single embedding---by mean-pooling or by keeping the
+last turn---before message passing, discarding how an agent behaves over time. We
+instead preserve cross-turn dynamics through a temporal edge encoder, which
+exposes escalation while remaining effective against continuous attacks.
+
+\paragraph{Multi-agent systems as graphs.}
+A growing body of work represents MAS as graphs to organize or optimize
+inter-agent communication. AutoGen~\citep{wu2023autogen} and
+DyLAN~\citep{liu2023dylan} structure agent collaboration through predefined or
+dynamic communication graphs, while GPTSwarm~\citep{zhuge2024gptswarm} and
+AgentPrune~\citep{zhang2024agentprune} optimize graph topology---including by
+pruning redundant edges---for performance and token economy. These methods use
+the graph view for \emph{utility and efficiency} and operate on static or
+aggregated message representations. We instead adopt the graph view for
+\emph{security}, and, unlike prior graph-based detectors, equip the GNN with
+temporal-aware edge features so that detection depends on how communication
+evolves across rounds rather than on its average.

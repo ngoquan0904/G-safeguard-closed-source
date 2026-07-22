@@ -1,0 +1,217 @@
+\section{Method}
+\label{sec:method}
+
+% TODO(figure): add the pipeline figure \ref{fig:pipeline}:
+%   (a) escalation attack schedule; (b) temporal edge encoder (3 branches + gate);
+%   (c) GNN detection + edge-pruning remediation.
+
+\subsection{Overview}
+\label{sec:method_overview}
+We study attacker detection and remediation in an LLM-based multi-agent system
+(MAS) that engages in multiple rounds of dialogue. Building on the graph-based
+detect-and-remediate paradigm~\citep{wang2025gsafeguard}, we make two
+contributions that both hinge on the temporal structure of inter-agent
+communication. Section~\ref{sec:method_prelim} formalizes the MAS, the
+detection problem, and our threat model. Section~\ref{sec:method_attack}
+introduces the \emph{escalation attack}, which exploits detectors that aggregate
+an agent's utterances over time. Section~\ref{sec:method_tgat} presents
+\textbf{T-GAT}, our temporal-aware detector whose \emph{temporal edge encoder}
+preserves cross-turn dynamics, and Section~\ref{sec:method_train} describes
+per-round detection, remediation, and training. Figure~\ref{fig:pipeline} gives
+an overview.
+
+\subsection{Preliminaries and Threat Model}
+\label{sec:method_prelim}
+
+\paragraph{Multi-agent system.}
+We model a MAS as a directed graph $\mathcal{G}=(\mathcal{V},\mathcal{E})$ with
+$N=|\mathcal{V}|$ agents. Given a user query, the agents communicate for $K$
+rounds; at round $t$, agent $C_i$ produces an utterance $\mathbf{R}_i^{(t)}$
+conditioned on the query and on the messages of its in-neighbors
+$\mathcal{N}_{\text{in}}(C_i)$. A text encoder
+$\mathcal{T}:\mathbb{T}\rightarrow\mathbb{R}^{D}$ (we use
+MiniLM~\citep{wang2020minilm} via Sentence-Transformers~\citep{reimers2019sentencebert},
+$D{=}384$) maps any utterance to an embedding.
+
+\paragraph{Detection as node classification.}
+Following~\citet{wang2025gsafeguard}, we cast attacker detection as node
+classification on a \emph{multi-agent utterance graph}. A subset
+$\mathcal{V}_{\text{atk}}\subseteq\mathcal{V}$ is compromised, and a detector
+$\mathcal{D}$ must recover it from observed communication. Because a compromised
+agent's toxic messages propagate, the compromised set grows across rounds,
+$\mathcal{V}_{\text{atk}}^{(1)}\subseteq\cdots\subseteq\mathcal{V}_{\text{atk}}^{(K)}$,
+so detection is run \emph{per round}. Once flagged, an agent is remediated by
+pruning its outgoing edges so its messages no longer reach others.
+
+\paragraph{Threat model.}
+The attacker controls the utterances of the compromised agents
+$\mathcal{V}_{\text{atk}}$ but cannot modify the detector, its training data, or
+the honest agents. Its objective is twofold: \emph{(i)} maximize propagation of
+malicious content through the MAS (high attack success rate), and \emph{(ii)}
+minimize the probability of being flagged by $\mathcal{D}$. The attacker's only
+lever is \emph{behavioral}: how it shapes its utterances across the $K$ rounds.
+This is the regime where the temporal profile of an attack becomes a degree of
+freedom that prior continuous attacks leave unused.
+
+\subsection{Escalation Attack}
+\label{sec:method_attack}
+
+\paragraph{Motivation.}
+Existing graph-based detectors summarize an agent's multi-turn behavior before
+reasoning over the graph: the per-turn embeddings on an edge are collapsed into a
+single vector by mean-pooling,
+\begin{equation}
+\label{eq:meanpool}
+\bar{\mathbf{e}}_{ij}^{(t)}=\frac{1}{t}\sum_{\tau=1}^{t}\mathbf{z}_{ij}^{(\tau)},
+\qquad \mathbf{z}_{ij}^{(\tau)}=\mathcal{T}\!\left(\mathbf{R}_{i\to j}^{(\tau)}\right),
+\end{equation}
+or by keeping only the last turn $\mathbf{z}_{ij}^{(t)}$. Either way, detection
+depends on \emph{average} content and is invariant to \emph{how} content evolves.
+This is the weakness our attack targets.
+
+\paragraph{Design.}
+The escalation attack assigns each compromised agent a monotonically increasing
+\emph{intensity schedule} $\lambda_1\le\lambda_2\le\cdots\le\lambda_K$ with
+$\lambda_1\approx 0$. At round $1$ the agent uses an instruction identical to that
+of honest agents, making it indistinguishable at the start; over subsequent rounds
+it gradually strengthens its push toward the malicious objective (light, then
+medium, then full advocacy), while keeping surface form---tone, length, and
+vocabulary---consistent to avoid abrupt per-turn jumps. Abstractly, the
+attacker's per-round embedding can be written as a drift from the benign centroid
+$\boldsymbol{\mu}_b$ toward a malicious centroid $\boldsymbol{\mu}_m$,
+\begin{equation}
+\label{eq:escalation}
+\mathbf{z}^{(\tau)}_{\text{atk}}\approx(1-\lambda_\tau)\,\boldsymbol{\mu}_b
++\lambda_\tau\,\boldsymbol{\mu}_m .
+\end{equation}
+
+\paragraph{Why it works.}
+Substituting Eq.~\eqref{eq:escalation} into the mean-pool of
+Eq.~\eqref{eq:meanpool} gives
+$\bar{\mathbf{e}}^{(t)}\approx\boldsymbol{\mu}_b+\bar{\lambda}^{(t)}
+(\boldsymbol{\mu}_m-\boldsymbol{\mu}_b)$ with
+$\bar{\lambda}^{(t)}=\tfrac{1}{t}\sum_{\tau\le t}\lambda_\tau$. Because the early
+$\lambda_\tau$ are near zero, the running mean $\bar{\lambda}^{(t)}$ stays small
+throughout the short horizon of a dialogue, so the aggregated feature remains
+inside the benign region and below the detection threshold. A \emph{continuous}
+attacker instead has $\lambda_\tau\approx1$ for all $\tau$, so its mean collapses
+to $\boldsymbol{\mu}_m$ and is easily separated. The escalation attack thus
+\emph{saturates} the aggregated feature with benign early turns, evading
+aggregation-based detectors while its later, higher-intensity turns still
+propagate malicious content to honest agents.
+
+\subsection{T-GAT: Temporal-Aware Detection}
+\label{sec:method_tgat}
+
+\paragraph{Temporal edge features.}
+T-GAT keeps the temporal axis that aggregation discards. The node feature is the
+agent's initial-round embedding $\mathbf{x}_i=\mathcal{T}(\mathbf{R}_i^{(1)})$, and
+each edge $(i,j)$ carries the full \emph{sequence} of per-turn embeddings
+\begin{equation}
+\label{eq:edgeseq}
+\mathbf{Z}_{ij}^{(t)}=\big[\mathbf{z}_{ij}^{(1)},\dots,\mathbf{z}_{ij}^{(t)}\big]
+\in\mathbb{R}^{t\times D},
+\end{equation}
+rather than a single pooled vector. The core of T-GAT is a \emph{temporal edge
+encoder} $\mathcal{F}:\mathbb{R}^{t\times D}\rightarrow\mathbb{R}^{D}$ that maps
+this sequence to a single edge embedding while retaining its dynamics.
+
+\paragraph{Temporal edge encoder.}
+Given a sequence $\mathbf{Z}\in\mathbb{R}^{t\times D}$ (we drop the $ij$ subscript),
+we first add a learnable temporal positional encoding $\mathbf{P}$ and extract
+three complementary views.
+\emph{(1) Temporal self-attention} models which turns matter:
+\begin{equation}
+\mathbf{a}=\operatorname{mean}_\tau\,
+\mathrm{LN}\!\big(\mathrm{MHA}(\tilde{\mathbf{Z}},\tilde{\mathbf{Z}},\tilde{\mathbf{Z}})
++\tilde{\mathbf{Z}}\big),\quad \tilde{\mathbf{Z}}=\mathbf{Z}+\mathbf{P}.
+\end{equation}
+\emph{(2) Temporal convolution} captures local sequential shifts between adjacent
+turns, $\mathbf{c}=\mathrm{Conv1D}(\mathbf{Z})\in\mathbb{R}^{D}$.
+\emph{(3) Cross-turn statistics} make escalation explicit:
+\begin{equation}
+\label{eq:stats}
+\mathbf{s}=\mathrm{MLP}\big(\big[\,
+\operatorname{mean}_\tau\mathbf{Z}\;\Vert\;\mathbf{z}^{(t)}\;\Vert\;
+\operatorname{std}_\tau\mathbf{Z}\;\Vert\;
+\textstyle\max_\tau\big|\mathbf{z}^{(\tau+1)}-\mathbf{z}^{(\tau)}\big|
+\,\big]\big),
+\end{equation}
+where $\Vert$ denotes concatenation and the four terms are the temporal mean, the
+last turn, the cross-turn standard deviation, and the largest step-wise change.
+The last two terms are near zero for a consistent honest agent but large for an
+escalating attacker, providing a direct signal that mean-pooling destroys. Finally, a learned gate
+adaptively fuses content and temporal dynamics,
+\begin{equation}
+\label{eq:gate}
+\mathbf{g}=\sigma\!\big(\mathbf{W}_g[\mathbf{a}\Vert\mathbf{c}\Vert\mathbf{s}]\big),
+\quad
+\mathbf{e}_{ij}=\mathbf{g}\odot\phi_c(\mathbf{a})
++(1-\mathbf{g})\odot\phi_t([\mathbf{c}\Vert\mathbf{s}]),
+\end{equation}
+where $\phi_c,\phi_t$ are linear projections and $\odot$ is the Hadamard product.
+The gate lets the model rely on content for continuous attacks (where average
+content is already discriminative) and on temporal dynamics for escalation
+attacks (where it is not), so a single detector handles both regimes.
+
+\subsection{Detection, Remediation, and Training}
+\label{sec:method_train}
+
+\paragraph{Graph detection and remediation.}
+The encoded edge embeddings $\mathbf{e}_{ij}$ feed an $L$-layer edge-featured graph
+attention network~\citep{velickovic2018gat} that propagates structural and
+semantic dependencies. Writing $\mathcal{N}_i$ for the in-neighbors of $C_i$,
+\begin{equation}
+\mathbf{h}_i^{(l)}=\mathrm{COMB}\!\Big(\mathbf{h}_i^{(l-1)},\,
+\mathrm{AGGR}\big\{\psi(\mathbf{h}_j^{(l-1)},\mathbf{e}_{ij}):
+C_j\in\mathcal{N}_i\big\}\Big),
+\end{equation}
+after which each agent receives an attack probability
+$p_i=\sigma\!\big(f_\theta(\mathbf{h}_i^{(L)})\big)$. At the end of round $t$, the
+flagged set $\tilde{\mathcal{V}}_{\text{atk}}^{(t)}=\{C_i:p_i\ge 0.5\}$ is remediated
+by pruning its outgoing edges,
+\begin{equation}
+\label{eq:prune}
+\mathcal{E}^{(t+1)}\leftarrow\mathcal{E}^{(t+1)}\setminus
+\bigcup_{C_i\in\tilde{\mathcal{V}}_{\text{atk}}^{(t)}}
+\{e_{ij}\mid C_j\in\mathcal{V}\},
+\end{equation}
+so that flagged agents can no longer contaminate their neighbors in subsequent
+rounds. Algorithm~\ref{alg:main} summarizes the defended dialogue loop.
+
+\paragraph{Training objective.}
+We train T-GAT with a binary cross-entropy loss over attack labels
+$y_i\in\{0,1\}$,
+\begin{equation}
+\label{eq:loss}
+\mathcal{L}=-\mathbb{E}_{C_i\sim\mathcal{V}}\big[
+y_i\log p_i+(1-y_i)\log(1-p_i)\big].
+\end{equation}
+To make detection robust to the round at which it is invoked, we apply
+\emph{temporal augmentation} during training: we randomly truncate each edge
+sequence to its first $t'\le t$ turns, simulating early-stage detection when only
+partial temporal evidence is available. This trains a single model to flag
+attackers as early as possible rather than only after the full dialogue.
+
+\begin{algorithm}[tb]
+\caption{Defended multi-agent dialogue with T-GAT}
+\label{alg:main}
+\textbf{Input}: MAS $\mathcal{G}=(\mathcal{V},\mathcal{E})$, rounds $K$, trained
+detector $\mathcal{D}_\theta$\\
+\textbf{Output}: final answers and flagged set $\tilde{\mathcal{V}}_{\text{atk}}$
+\begin{algorithmic}[1]
+\STATE Run round $1$; encode utterances with $\mathcal{T}$.
+\FOR{$t=1$ to $K$}
+\STATE Build utterance graph with temporal edge features
+$\mathbf{Z}_{ij}^{(t)}$ (Eq.~\ref{eq:edgeseq}).
+\STATE $\mathbf{e}_{ij}\leftarrow\mathcal{F}(\mathbf{Z}_{ij}^{(t)})$ via the
+temporal edge encoder (Eqs.~\ref{eq:stats}--\ref{eq:gate}).
+\STATE Compute $p_i$ for all $C_i$; set
+$\tilde{\mathcal{V}}_{\text{atk}}^{(t)}=\{C_i:p_i\ge0.5\}$.
+\STATE Prune outgoing edges of $\tilde{\mathcal{V}}_{\text{atk}}^{(t)}$
+(Eq.~\ref{eq:prune}).
+\STATE Run round $t{+}1$ on the pruned topology.
+\ENDFOR
+\STATE \textbf{return} final answers, $\tilde{\mathcal{V}}_{\text{atk}}$
+\end{algorithmic}
+\end{algorithm}

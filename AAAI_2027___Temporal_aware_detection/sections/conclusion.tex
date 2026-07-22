@@ -1,0 +1,32 @@
+\section{Conclusion}
+\label{sec:conclusion}
+
+% TODO(results): once numbers are final, tighten the evidence sentence below with
+% the headline gains (currently qualitative to avoid unsupported claims).
+
+We studied attacker detection in LLM-based multi-agent systems and identified a
+temporal blind spot in state-of-the-art graph-based defenses: by mean-pooling an
+agent's multi-turn dialogue before reasoning over the utterance graph, detection
+depends on average content and ignores behavioral dynamics. We turned this blind
+spot into both a threat and a remedy. Our \emph{escalation attack} starts benign
+and intensifies over rounds, saturating the aggregated feature so that
+aggregation-based detectors fail while the attack still propagates. Our defense,
+\textbf{T-GAT}, replaces mean-pooling with a temporal edge encoder that combines
+self-attention, temporal convolution, and cross-turn statistics, so that
+detection keys on \emph{how} an agent changes rather than only its average
+content. Experiments on tool-attack scenarios across multiple LLM backbones and
+topologies show that the escalation attack substantially degrades the baseline,
+while T-GAT restores detection and lowers attack success rate under both
+escalation and continuous attacks, all while preserving the inductive
+transferability of graph-based detectors.
+
+\paragraph{Limitations and future work.}
+T-GAT is a \emph{reactive} defense: like the detect-and-remediate paradigm it
+builds on, it curbs the spread of malicious content but cannot prevent the initial
+compromise, and its temporal evidence is bounded by the short dialogue horizon
+typical of current MAS. Our evaluation also focuses on tool-attack scenarios and
+on attackers whose behavior leaves a temporal trace; a defense-aware adversary
+that flattens its trajectory to mimic honest dynamics remains an open challenge.
+Promising next steps are proactive prevention rather than post-hoc remediation,
+detection over longer interaction horizons, and an explicit study of adaptive,
+detection-aware attacks across a broader range of attack families.

@@ -1,0 +1,48 @@
+% Abstract -- this file is \input INSIDE the \begin{abstract}...\end{abstract}
+% environment in main.tex, so DO NOT add \begin{abstract} here.
+% Do NOT cite references in the abstract.
+%
+% NUMBERS: computed from evaluation_results (2).csv (2026-07-21 snapshot).
+%   Scope: 3 attack scenarios (tool / memory / prompt-injection-MMLU)
+%          x 4 topologies (random, chain, tree, star) x 55-60 dialogues,
+%          backbone = Llama-3.1-70B-Instruct (AWQ-INT4). n = 12 runs per model.
+%   ASR @ final turn, overall : undefended 20.8% | baseline 18.0% | T-GAT 11.6%
+%   ASR @ final turn, tool    : undefended 25.6% | baseline 19.1% | T-GAT  3.4%
+%   Detection recall @ first post-injection turn : baseline 73.9% -> T-GAT 81.8%
+%   (All figures are ABSOLUTE percentages -- keep units consistent; do not mix in
+%    percentage-point deltas or relative reductions here.)
+%
+% TODO(backbones): only ONE backbone measured so far; update the wording once
+%   GPT / Claude / Gemini runs land.
+% TODO(csqa): PI-CSQA excluded from headline numbers (single topology + accuracy
+%   floor ~0.48); re-include after fixing the loader/labels.
+% TODO(continuous baseline): no continuous-attack control run yet, so we claim
+%   "delays detection" (measured) rather than "degrades vs continuous".
+% NOTE(experiments): the escalation attack also drives multi-agent task accuracy
+%   from 93.9% to 74.4% over a dialogue (-19.5 pts) -- report that in the
+%   Experiments section, not here (different unit).
+
+LLM-based multi-agent systems (MAS) achieve strong performance on complex
+collaborative tasks, but their inter-agent communication opens an attack surface
+in which a few compromised agents propagate malicious behavior across the system.
+State-of-the-art defenses cast attacker detection as node classification on a
+multi-agent \emph{utterance graph}, yet they compress each agent's multi-turn
+dialogue into a single mean-pooled embedding before reasoning over the graph.
+We identify this temporal compression as a critical blind spot: because detection
+relies on an averaged representation, an attacker that starts benign and escalates
+its intent only gradually keeps its mean embedding close to that of honest agents,
+and thereby delays detection until after the damage has spread. Building on this
+insight, we make two contributions. First, we introduce an \emph{escalation
+attack} that saturates the averaged feature with benign early turns: it lifts the
+attack success rate of the system to \textbf{20.8\%}, and the state-of-the-art
+mean-pooled defense brings it down to only \textbf{18.0\%}. Second, we propose
+\textbf{T-GAT}, a temporal-aware detector that replaces mean-pooling with a
+temporal edge encoder fusing self-attention, temporal convolution, and cross-turn
+statistics (variance and step-wise change); by modeling \emph{how} agents change
+rather than only \emph{what} they say on average, T-GAT defends against both
+continuous and escalation attacks. Across three attack scenarios (tool calling,
+memory poisoning, and prompt injection) and four communication topologies, T-GAT
+raises first-turn detection recall from \textbf{73.9\%} to \textbf{81.8\%} and
+lowers the attack success rate to \textbf{11.6\%}. On the strongest tool-calling
+attack, where the baseline recovers only from \textbf{25.6\%} to \textbf{19.1\%},
+T-GAT reaches \textbf{3.4\%}.
