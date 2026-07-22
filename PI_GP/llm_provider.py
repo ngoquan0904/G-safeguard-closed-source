@@ -89,6 +89,32 @@ def _bedrock_token() -> str:
     return tok
 
 
+def _need_text(v):
+    if not v:
+        raise LLMError("Response rỗng (không có text).", status=200)
+    return v
+
+
+def _extract_openai_message(d):
+    """Lấy text từ response OpenAI-compat.
+
+    Reasoning model (gpt-oss, deepseek-r1, ...) trả `content = null` và đưa nội
+    dung vào `reasoning_content`. Không xử lý thì mọi agent response thành None
+    và parser vỡ ở tận cuối pipeline — rất khó truy.
+    """
+    msg = d["choices"][0]["message"]
+    for key in ("content", "reasoning_content"):
+        v = msg.get(key)
+        if v:
+            return v
+    raise LLMError(
+        "Response không có text: cả 'content' lẫn 'reasoning_content' đều rỗng. "
+        f"finish_reason={d['choices'][0].get('finish_reason')!r}. "
+        "Nếu là reasoning model, thử tăng max_tokens hoặc bật --reasoning-parser trên vLLM.",
+        status=200,
+    )
+
+
 def _split_system(messages):
     """OpenAI messages -> (system_text, messages_không_system).
 
@@ -142,7 +168,7 @@ def _build(model_type, messages, temperature, max_tokens, extra=None):
                 "anthropic-version": "2023-06-01",
             },
             payload,
-            lambda d: d["content"][0]["text"],
+            lambda d: _need_text(d["content"][0].get("text")),
         )
 
     if kind == "bedrock_converse":
@@ -167,7 +193,7 @@ def _build(model_type, messages, temperature, max_tokens, extra=None):
                 "Content-Type": "application/json",
             },
             payload,
-            lambda d: d["output"]["message"]["content"][0]["text"],
+            lambda d: _need_text(d["output"]["message"]["content"][0].get("text")),
         )
 
     if kind == "openai_chat_mantle":
@@ -183,7 +209,7 @@ def _build(model_type, messages, temperature, max_tokens, extra=None):
                 "temperature": temperature,
                 "messages": messages,
             },
-            lambda d: d["choices"][0]["message"]["content"],
+            _extract_openai_message,
         )
 
     # self-hosted vLLM (Llama) — giữ nguyên hành vi cũ, kể cả extra_body
@@ -208,7 +234,7 @@ def _build(model_type, messages, temperature, max_tokens, extra=None):
             "content-type": "application/json",
         },
         payload,
-        lambda d: d["choices"][0]["message"]["content"],
+        _extract_openai_message,
     )
 
 
@@ -266,7 +292,11 @@ async def allm_invoke(prompt, model_type: str, temperature: float = 0.0,
 
                 if r.status_code == 200:
                     try:
-                        return extract(r.json())
+                        out = extract(r.json())
+                        if not out:
+                            raise LLMError(f"'{model_type}' trả về text rỗng.", status=200,
+                                           body=r.text[:500])
+                        return out
                     except (KeyError, IndexError, ValueError) as e:
                         raise LLMError(
                             f"Không parse được response của '{model_type}': {e!r}",
@@ -301,7 +331,11 @@ def llm_invoke(prompt, model_type: str, temperature: float = 0.0,
 
             if r.status_code == 200:
                 try:
-                    return extract(r.json())
+                    out = extract(r.json())
+                    if not out:
+                        raise LLMError(f"'{model_type}' trả về text rỗng.", status=200,
+                                       body=r.text[:500])
+                    return out
                 except (KeyError, IndexError, ValueError) as e:
                     raise LLMError(
                         f"Không parse được response của '{model_type}': {e!r}",
